@@ -4,9 +4,10 @@ Must use:
 
 	(done)Azure Function (Cloud/Local)
 	(done)Azure Storage (Cloud /Local storage emulator)
-a. Table
+		a. Table
 	(done)b. Blob
-Achieve:
+	
+		Achieve:
 
 	(done)Every minute, fetch data from:
 	(done)https://api.publicapis.org/random?auth=null
