@@ -4,14 +4,14 @@ Must use:
 
 	(done)Azure Function (Cloud/Local)
 	(done)Azure Storage (Cloud /Local storage emulator)
-		a. Table
+	(done)a. Table
 	(done)b. Blob
 	
 		Achieve:
 
 	(done)Every minute, fetch data from:
 	(done)https://api.publicapis.org/random?auth=null
-(TO DO)and store success/failure attempt log in the table
+	(done)and store success/failure attempt log in the table
 	(done)and full payload in the blob.
 (TO DO)Create a GET API call to list all logs for specific time period (from/to)
 (TO DO)Create a GET API call to fetch a payload from blob for specific log entry

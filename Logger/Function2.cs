@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using Microsoft.Azure.WebJobs;
 using Microsoft.Extensions.Logging;
 using System.Net.Http;
@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Azure.Storage.Blobs;
 using System.IO;
 using System.Globalization;
+using Azure.Data.Tables;
 
 namespace MonitorPublicapisOrg
 {
@@ -17,11 +18,11 @@ namespace MonitorPublicapisOrg
         {
             string result = "";
             string n = "\n";
-
+            
+            result += response.RequestMessage + n;
             result += response.ToString() + n + n;
             result += readContent;
             result += response.TrailingHeaders + n;
-            result += response.RequestMessage + n;
 
             return result;
         }
@@ -41,31 +42,52 @@ namespace MonitorPublicapisOrg
         [FunctionName("LogPublicapisOrgRandom")]
         public static async Task RunAsync([TimerTrigger("* * * * *")] TimerInfo myTimer, ILogger log)
         {
-            string blobNameContainingTime = DateTime.Now.ToString("yyyy/MM/dd/HH'-'mm", CultureInfo.InvariantCulture) + ".txt";//.txt files devided up in folders yyyy/MM/dd/
+            string nowTime = DateTime.UtcNow.ToString("yyyy/MM/dd/HH'-'mm", CultureInfo.InvariantCulture);//used for sub-devison of blob logs ↓
+            string txtFormat = ".txt";
+            
+            string unixTimeUTC = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();//Date in seconds used to query date intervals from storage
+            
+            string blobNameContainingTime =  nowTime + txtFormat;//.txt files devided up in folders yyyy/MM/dd/
+
             string connectionToStorageString = "UseDevelopmentStorage=true";
-            string storageContainerName = "log-publicapis-org-random";
+
+            string blobStorageName = "log-publicapis-org-ran";
+            string tableStorageName = "logPublicapisOrgRandom";
+
             string site = @"https://api.publicapis.org/random?auth=null";
             string wholeHttpResponseAsString;
+            bool isSucsess;
 
             //answer from site
             HttpResponseMessage httpResponse = await client.GetAsync(site);
 
-            //fill httpResponseAsString based on response code 
+            //Determine if sucsess or failure
             try
             {
                 var resp = httpResponse.EnsureSuccessStatusCode();//status code == OK, else err
+                isSucsess = true;
                 string responseBody = await httpResponse.Content.ReadAsStringAsync();
                 wholeHttpResponseAsString = HttpResponseToLog(httpResponse, responseBody);
             }
             catch (HttpRequestException exption)
             {
+                isSucsess = false;
                 wholeHttpResponseAsString = exption.ToString();//save err message
             }
 
-            //upload log
+            //Store success/failure attempt log in the table
+
+            var tableClient = new TableClient(connectionToStorageString, tableStorageName);
+            tableClient.CreateIfNotExists();//ensure container exists in Azure
+
+            var row = new TableEntity($"{isSucsess}", $"{unixTimeUTC}");//has to have partitionKey rowKey
+            tableClient.AddEntity(row);//send
+
+            //Store full payload in the blob
+
             Stream textToUpoadAsStream = StringToStream(wholeHttpResponseAsString);
 
-            BlobContainerClient blobContainerClient = new BlobContainerClient(connectionToStorageString, storageContainerName);
+            var blobContainerClient = new BlobContainerClient(connectionToStorageString, blobStorageName);
             blobContainerClient.CreateIfNotExists();//ensure container exists in Azure
             blobContainerClient.UploadBlob(blobNameContainingTime, textToUpoadAsStream);//send
         }
